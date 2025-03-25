@@ -10,6 +10,7 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <Router>
       <Routes>
+        
         <Route path="/" element={<App />} />
         <Route path="/scif" element={<Scif/>}/>
         <Route path="/novometal" element={<Novometal />} />

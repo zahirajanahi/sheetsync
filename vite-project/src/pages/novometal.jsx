@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle, Upload, Loader2 } from 'lucide-react';
+import { AlertCircle, Upload, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import axios from 'axios';
+import ReactPaginate from 'react-paginate';
 import { Images } from "../constant";
 
 const Novometal = () => {
@@ -10,6 +11,31 @@ const Novometal = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [incoherenceAlert, setIncoherenceAlert] = useState('');
+  const [currentPage, setCurrentPage] = useState(0);
+  const [rowsPerPage] = useState(10);
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  // Filter results based on status
+  const filteredResults = results.filter(result => 
+    statusFilter === 'all' || 
+    (statusFilter === 'Correct' && !result.hasIncoherence) ||
+    (statusFilter === 'Incohérence' && result.hasIncoherence)
+  );
+
+  // Pagination calculations
+  const indexOfLastRow = (currentPage + 1) * rowsPerPage;
+  const indexOfFirstRow = currentPage * rowsPerPage;
+  const currentRows = filteredResults.slice(indexOfFirstRow, indexOfLastRow);
+  const pageCount = Math.ceil(filteredResults.length / rowsPerPage);
+
+  const handlePageClick = ({ selected }) => {
+    setCurrentPage(selected);
+  };
+
+  const handleStatusFilterChange = (e) => {
+    setStatusFilter(e.target.value);
+    setCurrentPage(0);
+  };
 
   const handleFileChange = (e) => {
     const { name, files: fileList } = e.target;
@@ -31,6 +57,7 @@ const Novometal = () => {
     setError('');
     setIncoherenceAlert('');
     setResults([]);
+    setCurrentPage(0);
 
     const formData = new FormData();
     formData.append('timesheet', files.timesheet);
@@ -64,42 +91,51 @@ const Novometal = () => {
     }
   };
 
+  // Calculate summary statistics
+  const summary = {
+    total: results.length,
+    correct: results.filter(result => !result.hasIncoherence).length,
+    inconsistencies: results.filter(result => result.hasIncoherence).length,
+    totalDifference: results.reduce((sum, result) => sum + Math.abs(result.difference), 0)
+  };
+
   return (
     <div className="min-h-screen bg-[#1A1F2C] text-gray-100">
-      {/* Glass morphism navbar */}
-      <nav className="backdrop-blur-xl bg-black/40 border-b border-white/10 shadow-lg sticky top-0 z-10">
+       <nav className="backdrop-blur-xl bg-black/40 border-b border-white/10 shadow-lg sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <img
-                  className="h-8 w-8"
-                  src={Images.logo}
-                  alt="Logo"
-                />
+                <img src={Images.logo} alt="Logo" className="h-8 w-8" />
               </div>
               <div className="ml-4">
-              <a href='/' className="text-xl font-bold text-white">SheetSync</a>
+                <a href='/' className="text-xl font-bold text-white">SheetSync</a>
               </div>
             </div>
       
             <div className="hidden md:block ms-20">
               <ul className="flex space-x-4">
-                <li>
-                  <Link
-                    to="/scif"
-                    className="text-gray-300 hover:text-[#efab1e] hover:bg-white/10 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                  >
-                    SCIF
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/novometal"
-                    className="text-gray-300 hover:text-[#efab1e] hover:bg-white/10 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                  >
-                    Novometal
-                  </Link>
+                <li className="relative group">
+                  <button className="text-gray-300 hover:text-[#efab1e] hover:bg-white/10 px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center">
+                    Traitement
+                    <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  <div className="absolute hidden group-hover:block bg-black/80 backdrop-blur-md border border-white/10 rounded-md shadow-lg min-w-[160px] z-20">
+                    <Link
+                      to="/scif"
+                      className="block px-4 py-2 text-sm text-gray-300 hover:text-[#efab1e] hover:bg-white/10 transition-colors"
+                    >
+                      SCIF
+                    </Link>
+                    <Link
+                      to="/novometal"
+                      className="block px-4 py-2 text-sm text-gray-300 hover:text-[#efab1e] hover:bg-white/10 transition-colors"
+                    >
+                      Novometal
+                    </Link>
+                  </div>
                 </li>
               </ul>
             </div>
@@ -178,7 +214,7 @@ const Novometal = () => {
             </div>
           </form>
           
-          {error && (
+          {/* {error && (
             <div className="mt-6 p-4 bg-red-900/30 border-l-4 border-red-500 rounded-md backdrop-blur-lg">
               <div className="flex">
                 <div className="flex-shrink-0">
@@ -229,10 +265,53 @@ const Novometal = () => {
               </div>
             </div>
           )}
-          
+           */}
           {results.length > 0 && (
             <div className="mt-8">
-              <div className="overflow-x-auto shadow-md rounded-lg">
+              {/* Summary Cards */}
+              <div className="mb-8 p-6 bg-gray-800/50 border border-gray-700 rounded-lg shadow-lg backdrop-blur-sm">
+                <h2 className="text-lg font-semibold text-white mb-4">Résumé</h2>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 shadow-md transition-transform hover:scale-102 duration-200">
+                    <p className="text-sm text-gray-400">Total employés</p>
+                    <p className="text-2xl font-bold text-white">{summary.total}</p>
+                  </div>
+                  <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 shadow-md transition-transform hover:scale-102 duration-200">
+                    <p className="text-sm text-gray-400">Correspondances</p>
+                    <p className="text-2xl font-bold text-green-400">{summary.correct}</p>
+                  </div>
+                  <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 shadow-md transition-transform hover:scale-102 duration-200">
+                    <p className="text-sm text-gray-400">Incohérences</p>
+                    <p className="text-2xl font-bold text-red-400">{summary.inconsistencies}</p>
+                  </div>
+                  {/* <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 shadow-md transition-transform hover:scale-102 duration-200">
+                    <p className="text-sm text-gray-400">Différence totale</p>
+                    <p className="text-2xl font-bold text-yellow-400">{summary.totalDifference.toFixed(2)}</p>
+                  </div> */}
+                </div>
+              </div>
+
+              {/* Status Filter */}
+              <div className="mb-4 flex justify-end">
+                <div className="w-full md:w-64">
+                  <label htmlFor="statusFilter" className="block text-sm font-medium text-gray-300 mb-1">
+                    Filtrer par statut
+                  </label>
+                  <select
+                    id="statusFilter"
+                    value={statusFilter}
+                    onChange={handleStatusFilterChange}
+                    className="w-full bg-gray-800 border border-gray-700 text-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">Tous les statuts</option>
+                    <option value="Correct">Correct</option>
+                    <option value="Incohérence">Incohérence</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Results Table */}
+              <div className="overflow-x-auto rounded-lg border border-gray-700 shadow-xl backdrop-blur-sm">
                 <table className="min-w-full divide-y divide-gray-700">
                   <thead className="bg-gray-800">
                     <tr>
@@ -251,13 +330,16 @@ const Novometal = () => {
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                         Différence
                       </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Statut
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-700">
-                    {results.map((result, index) => (
+                    {currentRows.map((result, index) => (
                       <tr 
                         key={index} 
-                        className={result.hasIncoherence ? 'bg-red-900/20 hover:bg-red-900/30' : 'bg-[#2A2A2A] hover:bg-[#333333]'}
+                        className={result.hasIncoherence ? 'bg-yellow-900/20 hover:bg-yellow-900/30' : 'hover:bg-gray-800/50'}
                       >
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-200">
                           {result.employeeId}
@@ -277,10 +359,45 @@ const Novometal = () => {
                         }`}>
                           {result.difference.toFixed(2)}
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            !result.hasIncoherence ? 'bg-green-900/50 text-green-400 border border-green-700' :
+                            'bg-red-900/50 text-red-400 border border-red-700'
+                          }`}>
+                            {!result.hasIncoherence ? 'Correct' : 'Incohérence'}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+
+                {/* Pagination */}
+                <div className="flex items-center justify-between px-6 py-4 bg-gray-800 border-t border-gray-700">
+                  <div className="text-sm text-gray-400">
+                    Affichage {indexOfFirstRow + 1}-{Math.min(indexOfLastRow, filteredResults.length)} sur {filteredResults.length} résultats
+                    {statusFilter !== 'all' && ` (Filtré: ${statusFilter})`}
+                  </div>
+                  <ReactPaginate
+                    previousLabel={<ChevronLeft size={18} />}
+                    nextLabel={<ChevronRight size={18} />}
+                    breakLabel={<span className="text-gray-400">...</span>}
+                    breakClassName="mx-1"
+                    pageCount={pageCount}
+                    marginPagesDisplayed={1}
+                    pageRangeDisplayed={3}
+                    onPageChange={handlePageClick}
+                    containerClassName="flex items-center space-x-1"
+                    pageClassName="flex"
+                    pageLinkClassName="px-3 py-1 rounded-md text-sm text-gray-300 hover:bg-gray-700 transition-colors"
+                    activeClassName="bg-blue-600 text-white"
+                    activeLinkClassName="bg-blue-600 text-white hover:bg-blue-700"
+                    previousClassName="p-1 rounded-md hover:bg-gray-700"
+                    nextClassName="p-1 rounded-md hover:bg-gray-700"
+                    disabledClassName="opacity-40 cursor-not-allowed"
+                    disabledLinkClassName="cursor-not-allowed"
+                  />
+                </div>
               </div>
             </div>
           )}
