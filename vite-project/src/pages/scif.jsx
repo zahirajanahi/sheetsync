@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Upload, Loader2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import Images from "../constant/images";
 
 const Scif = () => {
-    const [pointageFile, setPointageFile] = useState(null);
+  const [pointageFile, setPointageFile] = useState(null);
   const [paieFile, setPaieFile] = useState(null);
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -10,10 +12,12 @@ const Scif = () => {
 
   const handlePointageChange = (e) => {
     setPointageFile(e.target.files[0]);
+    setError(null); // Clear error when new file is selected
   };
 
   const handlePaieChange = (e) => {
     setPaieFile(e.target.files[0]);
+    setError(null); // Clear error when new file is selected
   };
 
   const handleSubmit = async (e) => {
@@ -24,8 +28,19 @@ const Scif = () => {
       return;
     }
     
+    // Validate file types
+    const validExtensions = ['.xlsx', '.xls'];
+    const pointageExt = pointageFile.name.substring(pointageFile.name.lastIndexOf('.')).toLowerCase();
+    const paieExt = paieFile.name.substring(paieFile.name.lastIndexOf('.')).toLowerCase();
+    
+    if (!validExtensions.includes(pointageExt) || !validExtensions.includes(paieExt)) {
+      setError('Veuillez sélectionner des fichiers Excel (.xlsx ou .xls)');
+      return;
+    }
+    
     setLoading(true);
     setError(null);
+    setResults(null); 
     
     const formData = new FormData();
     formData.append('pointage', pointageFile);
@@ -40,98 +55,229 @@ const Scif = () => {
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.error || 'Une erreur est survenue');
+        throw new Error(data.error || 'Une erreur est survenue lors du traitement des fichiers');
       }
       
       setResults(data);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Erreur de connexion avec le serveur');
     } finally {
       setLoading(false);
     }
   };
 
-    return (
-        <div className="max-w-6xl mx-auto p-6 font-sans">
-        <header className="bg-slate-800 text-white p-6 rounded-md mb-6 text-center">
-          <h1 className="text-2xl font-bold">Comparaison des Heures Travaillées et Payées</h1>
-        </header>
-        
-        <div className="bg-gray-50 p-6 rounded-md shadow-md">
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div className="flex flex-col">
-              <label className="mb-2 font-semibold text-slate-700">Fichier de Pointage (Heures Travaillées)</label>
-              <input 
-                type="file" 
-                accept=".xlsx, .xls" 
-                onChange={handlePointageChange}
-                className="p-3 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" 
-              />
+  return (
+    <div className="min-h-screen bg-[#1A1F2C] text-gray-100">
+      {/* Navigation Bar with Glass Morphism */}
+      <nav className="backdrop-blur-xl bg-black/40 border-b border-white/10 shadow-lg sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center h-16">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <img src={Images.logo} alt="Logo" className="h-8 w-8" />
+              </div>
+              <div className="ml-4">
+                <a href='/' className="text-xl font-bold text-white">SheetSync</a>
+              </div>
+            </div>
+      
+            <div className="hidden md:block ms-20">
+              <ul className="flex space-x-4">
+                <li>
+                  <Link
+                    to="/scif"
+                    className="text-gray-300 hover:text-[#efab1e] hover:bg-white/10 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                  >
+                    SCIF
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/novometal"
+                    className="text-gray-300 hover:text-[#efab1e] hover:bg-white/10 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                  >
+                    Novometal
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <div className="bg-[#222222]/80 p-8 rounded-lg border border-gray-800 shadow-xl">
+          <h1 className="text-2xl font-bold text-white mb-6">Comparaison Pointage vs Paie</h1>
+          
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-300">
+                  Fichier de Pointage (Heures Travaillées)
+                </label>
+                <div className="flex items-center space-x-4">
+                  <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-gray-700 border-dashed rounded-lg cursor-pointer bg-[#333333] hover:bg-[#3A3A3A] transition-colors hover:border-gray-500  duration-200">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <Upload className="w-8 h-8 text-blue-400 mb-3" />
+                      <p className="text-sm text-gray-400">
+                        {pointageFile ? pointageFile.name : 'Cliquez pour sélectionner'}
+                      </p>
+                    </div>
+                    <input 
+                      type="file" 
+                      accept=".xlsx, .xls" 
+                      onChange={handlePointageChange}
+                      className="hidden" 
+                    />
+                  </label>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Format attendu: CIN, Nom et Prénom, NORMAL</p>
+              </div>
+              
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-300">
+                  Fichier de Journal de Paie (Heures Payées)
+                </label>
+                <div className="flex items-center space-x-4">
+                  <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-gray-700 border-dashed rounded-lg cursor-pointer bg-[#333333] hover:bg-[#3A3A3A] transition-colors hover:border-gray-500  duration-200">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <Upload className="w-8 h-8 text-blue-400 mb-3" />
+                      <p className="text-sm text-gray-400">
+                        {paieFile ? paieFile.name : 'Cliquez pour sélectionner'}
+                      </p>
+                    </div>
+                    <input 
+                      type="file" 
+                      accept=".xlsx, .xls" 
+                      onChange={handlePaieChange}
+                      className="hidden" 
+                    />
+                  </label>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Format attendu: CIN, Nom et Prénom, Jrs/Hrs</p>
+              </div>
             </div>
             
-            <div className="flex flex-col">
-              <label className="mb-2 font-semibold text-slate-700">Fichier de Journal de Paie (Heures Payées)</label>
-              <input 
-                type="file" 
-                accept=".xlsx, .xls" 
-                onChange={handlePaieChange}
-                className="p-3 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" 
-              />
+            <div className="flex justify-center pt-4">
+              <button 
+                type="submit" 
+                className="inline-flex items-center px-8 py-3 border border-transparent text-base font-medium rounded-md shadow-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                disabled={loading || !pointageFile || !paieFile}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="animate-spin mr-3 h-5 w-5" />
+                    Traitement en cours...
+                  </>
+                ) : 'Comparer les Fichiers'}
+              </button>
             </div>
-            
-            <button 
-              type="submit" 
-              className="md:col-span-2 bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-md cursor-pointer text-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-              disabled={loading}
-            >
-              {loading ? 'Traitement en cours...' : 'Comparer les Fichiers'}
-            </button>
           </form>
           
           {error && (
-            <div className="bg-red-100 text-red-800 p-4 rounded-md mb-6">
-              Erreur: {error}
+            <div className="mt-8 p-4 bg-red-950/50 border-l-4 border-red-500 rounded-md backdrop-blur-sm">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <AlertCircle className="h-5 w-5 text-red-400" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-400">Erreur</h3>
+                  <div className="mt-2 text-sm text-red-300">
+                    <p>{error}</p>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
           
           {results && (
-            <div className="mt-8">
-              <h2 className="text-xl font-bold text-slate-800 mb-4">Résultats de la Comparaison</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 bg-blue-50 p-4 rounded-md">
-                <p>Total des employés: <span className="font-bold">{results.summary.total}</span></p>
-                <p>Correct: <span className="font-bold">{results.summary.correct}</span></p>
-                <p>Incohérences: <span className="font-bold">{results.summary.inconsistencies}</span></p>
+            <div className="mt-10 animate-fadeIn">
+              <div className="mb-8 p-6 bg-gray-800/50 border border-gray-700 rounded-lg shadow-lg backdrop-blur-sm">
+                <h2 className="text-lg font-semibold text-white mb-4">Résumé</h2>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 shadow-md transition-transform hover:scale-102 duration-200">
+                    <p className="text-sm text-gray-400">Total employés</p>
+                    <p className="text-2xl font-bold text-white">{results.summary.total}</p>
+                  </div>
+                  <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 shadow-md transition-transform hover:scale-102 duration-200">
+                    <p className="text-sm text-gray-400">Correspondances</p>
+                    <p className="text-2xl font-bold text-green-400">{results.summary.correct}</p>
+                  </div>
+                  <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 shadow-md transition-transform hover:scale-102 duration-200">
+                    <p className="text-sm text-gray-400">Incohérences</p>
+                    <p className="text-2xl font-bold text-red-400">{results.summary.inconsistencies}</p>
+                  </div>
+                  <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 shadow-md transition-transform hover:scale-102 duration-200">
+                    <p className="text-sm text-gray-400">Prime de Rendement Totale</p>
+                    <p className="text-2xl font-bold text-yellow-400">{results.summary.totalPrimeRendement.toFixed(2)}</p>
+                  </div>
+                </div>
               </div>
               
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead>
+              <div className="overflow-x-auto rounded-lg border border-gray-700 shadow-xl backdrop-blur-sm">
+                <table className="min-w-full divide-y divide-gray-700">
+                  <thead className="bg-gray-800">
                     <tr>
-                      <th className="bg-slate-800 text-white p-3 text-left">Matricule</th>
-                      <th className="bg-slate-800 text-white p-3 text-left">Heures Travaillées</th>
-                      <th className="bg-slate-800 text-white p-3 text-left">Heures Payées (Jrs/Hrs)</th>
-                      <th className="bg-slate-800 text-white p-3 text-left">Différence</th>
-                      <th className="bg-slate-800 text-white p-3 text-left">Statut</th>
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Nom et Prénom
+                      </th>
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Heures Travaillées
+                      </th>
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Heures Payées
+                      </th>
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Différence
+                      </th>
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Prime de Rendement
+                      </th>
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Statut
+                      </th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="bg-gray-900 divide-y divide-gray-800">
                     {results.results.map((item, index) => (
                       <tr 
                         key={index} 
                         className={
                           item.status !== 'Correct' 
-                            ? 'bg-yellow-50 hover:bg-yellow-100' 
-                            : (index % 2 === 0 ? 'bg-white hover:bg-blue-50' : 'bg-gray-50 hover:bg-blue-50')
+                            ? 'bg-yellow-900/20 hover:bg-yellow-900/30' 
+                            : 'hover:bg-gray-800/50'
                         }
+                        style={{ transition: 'background-color 0.2s ease' }}
                       >
-                        <td className="p-3 border-b border-gray-200">{item.matricule}</td>
-                        <td className="p-3 border-b border-gray-200">{item.heuresTravaillees.toFixed(2)}</td>
-                        <td className="p-3 border-b border-gray-200">{item.heuresPayees.toFixed(2)}</td>
-                        <td className={`p-3 border-b border-gray-200 ${item.difference !== 0 ? 'text-red-600 font-bold' : ''}`}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-200">
+                          {item.nomComplet}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                          {item.heuresTravaillees.toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                          {item.heuresPayees.toFixed(2)}
+                        </td>
+                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
+                          item.difference > 0 ? 'text-red-400' : 
+                          item.difference < 0 ? 'text-red-800' : 'text-gray-400'
+                        }`}>
                           {item.difference.toFixed(2)}
                         </td>
-                        <td className="p-3 border-b border-gray-200">{item.status}</td>
+                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
+                          item.primeRendement > 0 ? 'text-yellow-400' : 'text-gray-400'
+                        }`}>
+                          {item.primeRendement.toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            item.status === 'Correct' ? 'bg-green-900/50 text-green-400 border border-green-700' :
+                            item.status === 'Heures non payées' ? 'bg-red-900/50 text-red-400 border border-red-700' :
+                            'bg-red-900/50 text-red-400 border border-red-900'
+                          }`}>
+                            {item.status}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -140,8 +286,9 @@ const Scif = () => {
             </div>
           )}
         </div>
-      </div>
-    );
+      </main>
+    </div>
+  );
 };
 
 export default Scif;
