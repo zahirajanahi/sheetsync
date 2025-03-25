@@ -76,52 +76,64 @@ def read_file_with_header(file_path, header_terms):
 def compare_files(pointage_path, paie_path):
     # Read files with dynamic header detection
     try:
-        df_pointage = read_file_with_header(pointage_path, ["NOM ET PRÉNOM", "NORMAL"])
-        df_paie = read_file_with_header(paie_path, ["NOM ET PRÉNOM", "JRS/HRS"])
+        # Pointage uses CIN, Journal de Paie uses NCIN
+        df_pointage = read_file_with_header(pointage_path, ["CIN", "NORMAL"])
+        df_paie = read_file_with_header(paie_path, ["NCIN", "JRS/HRS"])
     except ValueError as e:
         raise Exception(f"Erreur lors de la lecture des fichiers: {str(e)}")
 
     # Identify the correct columns
-    name_col = next((col for col in df_pointage.columns if "NOM" in col and "PRÉNOM" in col), None)
+    cin_col_pointage = next((col for col in df_pointage.columns if "CIN" in col), None)
     normal_col = next((col for col in df_pointage.columns if "NORMAL" in col), None)
+    
+    ncin_col_paie = next((col for col in df_paie.columns if "NCIN" in col), None)
     jrs_hrs_col = next((col for col in df_paie.columns if "JRS" in col or "HRS" in col), None)
 
-    if not name_col or not normal_col:
+    if not cin_col_pointage or not normal_col:
         raise Exception(f"Colonnes introuvables dans Pointage. Colonnes disponibles: {df_pointage.columns.tolist()}")
-    if not name_col or not jrs_hrs_col:
+    if not ncin_col_paie or not jrs_hrs_col:
         raise Exception(f"Colonnes introuvables dans Journal de Paie. Colonnes disponibles: {df_paie.columns.tolist()}")
 
-    # Clean and standardize names for better matching
-    df_pointage[name_col] = df_pointage[name_col].astype(str).str.strip().str.upper()
-    df_paie[name_col] = df_paie[name_col].astype(str).str.strip().str.upper()
+    # Clean and standardize CIN/NCIN for better matching
+    df_pointage[cin_col_pointage] = df_pointage[cin_col_pointage].astype(str).str.strip().str.upper()
+    df_paie[ncin_col_paie] = df_paie[ncin_col_paie].astype(str).str.strip().str.upper()
+
+    # Filter out rows with empty/NaN CIN values in Journal de Paie
+    df_paie = df_paie[df_paie[ncin_col_paie].str.strip() != '']
+    df_paie = df_paie[df_paie[ncin_col_paie] != 'NAN']
+    df_paie = df_paie[df_paie[ncin_col_paie] != 'N/A']
 
     # Convert columns to numeric
     df_pointage[normal_col] = pd.to_numeric(df_pointage[normal_col], errors="coerce").fillna(0)
     df_paie[jrs_hrs_col] = pd.to_numeric(df_paie[jrs_hrs_col], errors="coerce").fillna(0)
 
-    # Group pointage by name and sum the hours (to handle duplicate entries)
-    df_pointage_grouped = df_pointage.groupby(name_col)[normal_col].sum().reset_index()
-    df_pointage_grouped.columns = ["Nom_Complet", "Heures_Pointage"]
+    # Group pointage by CIN and sum the hours (to handle duplicate entries)
+    df_pointage_grouped = df_pointage.groupby(cin_col_pointage)[normal_col].sum().reset_index()
+    df_pointage_grouped.columns = ["CIN", "Heures_Pointage"]
 
     # Prepare paie data
-    df_paie = df_paie[[name_col, jrs_hrs_col]].rename(
-        columns={name_col: "Nom_Complet", jrs_hrs_col: "Heures_Paie"}
+    df_paie = df_paie[[ncin_col_paie, jrs_hrs_col]].rename(
+        columns={ncin_col_paie: "CIN", jrs_hrs_col: "Heures_Paie"}
     )
 
-    # Merge on Nom_Complet
-    df_comparaison = pd.merge(df_paie, df_pointage_grouped, on="Nom_Complet", how="outer").fillna(0)
+    # Merge on CIN
+    df_comparaison = pd.merge(df_paie, df_pointage_grouped, on="CIN", how="outer").fillna(0)
     df_comparaison["Écart"] = df_comparaison["Heures_Pointage"] - df_comparaison["Heures_Paie"]
 
     # Generate results
     results = []
     for _, row in df_comparaison.iterrows():
+        # Skip rows with empty/NaN CIN values in the final results
+        if pd.isna(row["CIN"]) or str(row["CIN"]).strip() in ['', 'NAN', 'N/A']:
+            continue
+            
         prime_rendement = 0
         status = "Incohérence"
         
         if row["Heures_Pointage"] == 0 and row["Heures_Paie"] > 0:
             status = "Employé absent dans pointage"
         elif row["Heures_Pointage"] > 0 and row["Heures_Paie"] == 0:
-            status = "Heures non payées"
+            status = "Employé absent dans journal de paie"
         elif row["Heures_Pointage"] > row["Heures_Paie"]:
             # Calculate Prime de Rendement when worked hours exceed paid hours
             prime_rendement = row["Heures_Pointage"] - row["Heures_Paie"]
@@ -132,7 +144,7 @@ def compare_files(pointage_path, paie_path):
             status = "Correct"
 
         results.append({
-            "nomComplet": row["Nom_Complet"],
+            "CIN": row["CIN"],
             "heuresTravaillees": row["Heures_Pointage"],
             "heuresPayees": row["Heures_Paie"],
             "difference": row["Écart"],

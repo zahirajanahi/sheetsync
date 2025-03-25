@@ -258,8 +258,8 @@ const Scif = () => {
                     <option value="all">Tous les statuts</option>
                     <option value="Correct">Correct</option>
                     <option value="Incohérence">Incohérence</option>
-                    <option value="Employé absent dans pointage">Employé absent</option>
-                    <option value="Heures non payées">Heures non payées</option>
+                    <option value="Employé absent dans pointage">Employé absent dans pointage</option>
+                    <option value="Employé absent dans journal de paie">Employé absent dans journal de paie</option>
                   </select>
                 </div>
               </div>
@@ -269,7 +269,7 @@ const Scif = () => {
                   <thead className="bg-gray-800">
                     <tr>
                       <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Nom et Prénom
+                       CIN
                       </th>
                       <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                        NORMAL (pointage)
@@ -300,7 +300,7 @@ const Scif = () => {
                         style={{ transition: 'background-color 0.2s ease' }}
                       >
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-200">
-                          {item.nomComplet}
+                          {item.CIN}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                           {item.heuresTravaillees.toFixed(2)}
@@ -322,7 +322,7 @@ const Scif = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                             item.status === 'Correct' ? 'bg-green-900/50 text-green-400 border border-green-700' :
-                            item.status === 'Heures non payées' ? 'bg-red-900/50 text-red-400 border border-red-700' :
+                            item.status === 'Employé absent dans journal de paie' ? 'bg-red-900/50 text-red-400 border border-red-700' :
                             'bg-red-900/50 text-red-400 border border-red-900'
                           }`}>
                             {item.status}
