@@ -5,6 +5,7 @@ import './index.css';
 import App from './App.jsx';
 import Scif from './pages/scif.jsx';
 import Novometal from './pages/novometal.jsx';
+import Afric from './pages/afric-phar.jsx';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -14,6 +15,8 @@ createRoot(document.getElementById('root')).render(
         <Route path="/" element={<App />} />
         <Route path="/scif" element={<Scif/>}/>
         <Route path="/novometal" element={<Novometal />} />
+        <Route path="/afric-ph" element={<Afric />} />
+
       </Routes>
     </Router>
   </StrictMode>,

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import ReactPaginate from 'react-paginate';
 import Images from "../constant/images";
 
-const Scif = () => {
+const Afric = () => {
   const [pointageFile, setPointageFile] = useState(null);
   const [paieFile, setPaieFile] = useState(null);
   const [results, setResults] = useState(null);
@@ -13,12 +13,12 @@ const Scif = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [rowsPerPage] = useState(10);
   const [statusFilter, setStatusFilter] = useState('all');
-  const [cinFilter, setCinFilter] = useState('');
+  const [nameFilter, setNameFilter] = useState('');
 
-  // Filter results based on status and CIN
+  // Filter results based on status and name
   const filteredResults = results?.results?.filter(item => 
     (statusFilter === 'all' || item.status === statusFilter) &&
-    (cinFilter === '' || item.CIN.toLowerCase().includes(cinFilter.toLowerCase()))
+    (nameFilter === '' || item.name.toLowerCase().includes(nameFilter.toLowerCase()))
   ) || [];
 
   // Pagination calculations
@@ -77,7 +77,7 @@ const Scif = () => {
     formData.append('paie', paieFile);
     
     try {
-      const response = await fetch('http://localhost:8001/upload', {
+      const response = await fetch('http://localhost:8002/upload', {
         method: 'POST',
         body: formData,
       });
@@ -118,7 +118,7 @@ const Scif = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
-                  <div className="absolute hidden group-hover:block bg-black backdrop-blur-md border border-white/10 rounded-md shadow-lg min-w-[160px] z-20">
+                  <div className="absolute hidden group-hover:block bg-black/80 backdrop-blur-md border border-white/10 rounded-md shadow-lg min-w-[160px] z-20">
                     <Link to="/scif" className="block px-4 py-2 text-sm text-gray-300 hover:text-[#5c67cb] hover:bg-white/10 transition-colors">
                       SCIF
                     </Link>
@@ -126,7 +126,7 @@ const Scif = () => {
                       Novometal
                     </Link>
                     <Link to="/afric-ph" className="block px-4 py-2 text-sm text-gray-300 hover:text-[#5c67cb] hover:bg-white/10 transition-colors">
-                      Afric-ph
+                      Afric Phar
                     </Link>
                   </div>
                 </li>
@@ -138,13 +138,13 @@ const Scif = () => {
 
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="bg-[#222222]/80 p-8 rounded-lg border border-gray-800 shadow-xl">
-          <h1 className="text-2xl font-bold text-white mb-6">Traitement Pointage vs Paie Scif</h1>
+          <h1 className="text-2xl font-bold text-white mb-6">Traitement Pointage vs Paie Afric Phar</h1>
           
           <form onSubmit={handleSubmit} className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-3">
                 <label className="block text-sm font-medium text-gray-300">
-                  Fichier de Pointage (NORMAL)
+                  Fichier de Pointage (HEURES TRAVAILLEES)
                 </label>
                 <div className="flex items-center space-x-4">
                   <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-gray-700 border-dashed rounded-lg cursor-pointer bg-[#333333] hover:bg-[#3A3A3A] transition-colors hover:border-gray-500 duration-200">
@@ -162,7 +162,7 @@ const Scif = () => {
                     />
                   </label>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Format attendu: CIN, Nom et Prénom, NORMAL</p>
+                <p className="text-xs text-gray-500 mt-1">Format attendu: NOM ET PRENOM, HEURES TRAVAILLEES (ex: "26J Trav + 0 J Fer")</p>
               </div>
               
               <div className="space-y-3">
@@ -185,7 +185,7 @@ const Scif = () => {
                     />
                   </label>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Format attendu: NCIN, Nom et Prénom, Jrs/Hrs</p>
+                <p className="text-xs text-gray-500 mt-1">Format attendu: Nom et Prénom, Jrs/Hrs</p>
               </div>
             </div>
             
@@ -238,24 +238,30 @@ const Scif = () => {
                     <p className="text-sm text-gray-400">Incohérences</p>
                     <p className="text-2xl font-bold text-red-400">{results.summary.inconsistencies}</p>
                   </div>
+                  <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 shadow-md transition-transform hover:scale-102 duration-200">
+                    <p className="text-sm text-gray-400">Employés manquants</p>
+                    <p className="text-2xl font-bold text-yellow-400">
+                      {results.summary.missing_in_pointage + results.summary.missing_in_paie}
+                    </p>
+                  </div>
                 </div>
               </div>
 
               {/* Combined Filters */}
               <div className="mb-4 flex flex-col md:flex-row gap-4">
                 <div className="w-full md:w-64">
-                  <label htmlFor="cinFilter" className="block text-sm font-medium text-gray-300 mb-1">
-                    Filtrer par CIN
+                  <label htmlFor="nameFilter" className="block text-sm font-medium text-gray-300 mb-1">
+                    Filtrer par nom
                   </label>
                   <input
                     type="text"
-                    id="cinFilter"
-                    value={cinFilter}
+                    id="nameFilter"
+                    value={nameFilter}
                     onChange={(e) => {
-                      setCinFilter(e.target.value);
+                      setNameFilter(e.target.value);
                       setCurrentPage(0);
                     }}
-                    placeholder="Rechercher par CIN..."
+                    placeholder="Rechercher par nom..."
                     className="w-full bg-gray-800 border border-gray-700 text-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -284,20 +290,18 @@ const Scif = () => {
                   <thead className="bg-gray-800">
                     <tr>
                       <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                       CIN
+                        Nom et Prénom
                       </th>
                       <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                       NORMAL (pointage)
+                        Jours travaillés (Pointage)
                       </th>
                       <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Jrs/Hrs (Journal de paie)
+                        Jours payés (Paie)
                       </th>
                       <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                         Différence
                       </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Prime de Rendement
-                      </th>
+                      
                       <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                         Statut
                       </th>
@@ -315,29 +319,30 @@ const Scif = () => {
                         style={{ transition: 'background-color 0.2s ease' }}
                       >
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-200">
-                          {item.CIN}
+                          {item.name}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                          {item.heuresTravaillees.toFixed(2)}
+                          {item.days_worked}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                          {item.heuresPayees.toFixed(2)}
+                          {item.days_paid}
                         </td>
                         <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
                           item.difference > 0 ? 'text-red-400' : 
                           item.difference < 0 ? 'text-red-800' : 'text-gray-400'
                         }`}>
-                          {item.difference.toFixed(2)}
+                          {item.difference}
                         </td>
                         <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-                          item.primeRendement > 0 ? 'text-yellow-400' : 'text-gray-400'
+                          item.prime_rendement > 0 ? 'text-yellow-400' : 'text-gray-400'
                         }`}>
-                          {item.primeRendement.toFixed(2)}
+                          {item.prime_rendement}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                             item.status === 'Correct' ? 'bg-green-900/50 text-green-400 border border-green-700' :
                             item.status === 'Employé absent dans journal de paie' ? 'bg-red-900/50 text-red-400 border border-red-700' :
+                            item.status === 'Employé absent dans pointage' ? 'bg-purple-900/50 text-purple-400 border border-purple-700' :
                             'bg-red-900/50 text-red-400 border border-red-900'
                           }`}>
                             {item.status}
@@ -352,10 +357,10 @@ const Scif = () => {
                 <div className="flex items-center justify-between px-6 py-4 bg-gray-800 border-t border-gray-700">
                   <div className="text-sm text-gray-400">
                     Affichage {indexOfFirstRow + 1}-{Math.min(indexOfLastRow, filteredResults.length)} sur {filteredResults.length} résultats
-                    {(statusFilter !== 'all' || cinFilter !== '') && (
+                    {(statusFilter !== 'all' || nameFilter !== '') && (
                       <span> (Filtré: {statusFilter !== 'all' ? `${statusFilter}` : ''}
-                      {statusFilter !== 'all' && cinFilter !== '' ? ' et ' : ''}
-                      {cinFilter !== '' ? `CIN contenant "${cinFilter}"` : ''})</span>
+                      {statusFilter !== 'all' && nameFilter !== '' ? ' et ' : ''}
+                      {nameFilter !== '' ? `Nom contenant "${nameFilter}"` : ''})</span>
                     )}
                   </div>
                   <ReactPaginate
@@ -387,4 +392,4 @@ const Scif = () => {
   );
 };
 
-export default Scif;
+export default Afric;

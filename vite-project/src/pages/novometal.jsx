@@ -10,16 +10,18 @@ const Novometal = () => {
   const [results, setResults] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [incoherenceAlert, setIncoherenceAlert] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
   const [rowsPerPage] = useState(10);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [matriculeFilter, setMatriculeFilter] = useState('');
 
-  // Filter results based on status
+  // Filter results based on status and matricule
   const filteredResults = results.filter(result => 
-    statusFilter === 'all' || 
+    (statusFilter === 'all' || 
     (statusFilter === 'Correct' && !result.hasIncoherence) ||
-    (statusFilter === 'Incohérence' && result.hasIncoherence)
+    (statusFilter === 'Incohérence' && result.hasIncoherence)) &&
+    (matriculeFilter === '' || 
+     result.employeeId.toLowerCase().includes(matriculeFilter.toLowerCase()))
   );
 
   // Pagination calculations
@@ -34,6 +36,11 @@ const Novometal = () => {
 
   const handleStatusFilterChange = (e) => {
     setStatusFilter(e.target.value);
+    setCurrentPage(0);
+  };
+
+  const handleMatriculeFilterChange = (e) => {
+    setMatriculeFilter(e.target.value);
     setCurrentPage(0);
   };
 
@@ -55,7 +62,6 @@ const Novometal = () => {
 
     setLoading(true);
     setError('');
-    setIncoherenceAlert('');
     setResults([]);
     setCurrentPage(0);
 
@@ -70,17 +76,6 @@ const Novometal = () => {
 
       if (response.data.status === 'success') {
         setResults(response.data.data);
-
-        // Check for inconsistencies
-        const incoherences = response.data.data.filter((result) => result.hasIncoherence);
-        if (incoherences.length > 0) {
-          const alertMessage = incoherences
-            .map((result) => `Matricule: ${result.employeeId}, Nom: ${result.employeeName}, Différence: ${result.difference.toFixed(2)}`)
-            .join('\n');
-          setIncoherenceAlert(`Incohérences détectées :\n${alertMessage}`);
-        } else {
-          setIncoherenceAlert('Aucune incohérence détectée. Tout est en ordre !');
-        }
       } else {
         setError('Erreur lors de la comparaison des données');
       }
@@ -99,9 +94,35 @@ const Novometal = () => {
     totalDifference: results.reduce((sum, result) => sum + Math.abs(result.difference), 0)
   };
 
+  // Function to determine status text and color
+  const getStatusInfo = (result) => {
+    if (!result.hasIncoherence) {
+      return { text: 'Correct', color: 'green' };
+    }
+    
+    if (result.statusTimesheet === 'Employé absent dans pointage' && 
+        result.statusPayroll === 'Employé absent dans journal de paie') {
+      return { text: 'Absent dans les deux', color: 'red' };
+    }
+    
+    if (result.statusTimesheet === 'Employé absent dans pointage') {
+      return { text: 'Absent dans pointage', color: 'red' };
+    }
+    
+    if (result.statusPayroll === 'Employé absent dans journal de paie') {
+      return { text: 'Absent dans paie', color: 'red' };
+    }
+    
+    if (result.difference !== 0) {
+      return { text: 'Incohérence heures', color: 'red' };
+    }
+    
+    return { text: 'Inconnu', color: 'gray' };
+  };
+
   return (
     <div className="min-h-screen bg-[#1A1F2C] text-gray-100">
-       <nav className="backdrop-blur-xl bg-black/40 border-b border-white/10 shadow-lg sticky top-0 z-10">
+      <nav className="backdrop-blur-xl bg-black/40 border-b border-white/10 shadow-lg sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center h-16">
             <div className="flex items-center">
@@ -116,25 +137,22 @@ const Novometal = () => {
             <div className="hidden md:block ms-20">
               <ul className="flex space-x-4">
                 <li className="relative group">
-                  <button className="text-gray-300 hover:text-[#efab1e] hover:bg-white/10 px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center">
+                  <button className="text-gray-300 hover:text-[#5c67cb] hover:bg-white/10 px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center">
                     Traitement
                     <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
-                  <div className="absolute hidden group-hover:block bg-black/80 backdrop-blur-md border border-white/10 rounded-md shadow-lg min-w-[160px] z-20">
-                    <Link
-                      to="/scif"
-                      className="block px-4 py-2 text-sm text-gray-300 hover:text-[#efab1e] hover:bg-white/10 transition-colors"
-                    >
+                  <div className="absolute hidden group-hover:block bg-black backdrop-blur-md border border-white/10 rounded-md shadow-lg min-w-[160px] z-20">
+                    <Link to="/scif" className="block px-4 py-2 text-sm text-gray-300 hover:text-[#5c67cb] hover:bg-white/10 transition-colors">
                       SCIF
                     </Link>
-                    <Link
-                      to="/novometal"
-                      className="block px-4 py-2 text-sm text-gray-300 hover:text-[#efab1e] hover:bg-white/10 transition-colors"
-                    >
+                    <Link to="/novometal" className="block px-4 py-2 text-sm text-gray-300 hover:text-[#5c67cb] hover:bg-white/10 transition-colors">
                       Novometal
                     </Link>
+                    <Link to="/afric-ph" className="block px-4 py-2 text-sm text-gray-300 hover:text-[#5c67cb] hover:bg-white/10 transition-colors">
+                      Afric-ph 
+                   </Link>
                   </div>
                 </li>
               </ul>
@@ -145,7 +163,7 @@ const Novometal = () => {
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="bg-[#222222]/80 backdrop-blur-lg border border-white/10 p-6 rounded-lg shadow-lg transition-all duration-300 hover:shadow-xl animate-fadeIn">
-          <h1 className="text-2xl font-bold text-white mb-6">Comparaison Pointage vs Paie</h1>
+          <h1 className="text-2xl font-bold text-white mb-6">Traitement Pointage vs Paie Novometal</h1>
           
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -214,7 +232,7 @@ const Novometal = () => {
             </div>
           </form>
           
-          {/* {error && (
+          {error && (
             <div className="mt-6 p-4 bg-red-900/30 border-l-4 border-red-500 rounded-md backdrop-blur-lg">
               <div className="flex">
                 <div className="flex-shrink-0">
@@ -230,42 +248,6 @@ const Novometal = () => {
             </div>
           )}
           
-          {incoherenceAlert && (
-            <div className={`mt-6 p-4 border-l-4 rounded-md backdrop-blur-lg ${
-              incoherenceAlert.includes('Aucune incohérence') 
-                ? 'bg-green-900/30 border-green-500' 
-                : 'bg-yellow-900/30 border-yellow-500'
-            }`}>
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <AlertCircle className={`h-5 w-5 ${
-                    incoherenceAlert.includes('Aucune incohérence') 
-                      ? 'text-green-400' 
-                      : 'text-yellow-400'
-                  }`} />
-                </div>
-                <div className="ml-3">
-                  <h3 className={`text-sm font-medium ${
-                    incoherenceAlert.includes('Aucune incohérence') 
-                      ? 'text-green-300' 
-                      : 'text-yellow-300'
-                  }`}>
-                    {incoherenceAlert.includes('Aucune incohérence') 
-                      ? 'Succès' 
-                      : 'Avertissement'}
-                  </h3>
-                  <div className={`mt-2 text-sm ${
-                    incoherenceAlert.includes('Aucune incohérence') 
-                      ? 'text-green-200' 
-                      : 'text-yellow-200'
-                  }`}>
-                    <p className="whitespace-pre-line">{incoherenceAlert}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-           */}
           {results.length > 0 && (
             <div className="mt-8">
               {/* Summary Cards */}
@@ -284,16 +266,26 @@ const Novometal = () => {
                     <p className="text-sm text-gray-400">Incohérences</p>
                     <p className="text-2xl font-bold text-red-400">{summary.inconsistencies}</p>
                   </div>
-                  {/* <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 shadow-md transition-transform hover:scale-102 duration-200">
-                    <p className="text-sm text-gray-400">Différence totale</p>
-                    <p className="text-2xl font-bold text-yellow-400">{summary.totalDifference.toFixed(2)}</p>
-                  </div> */}
                 </div>
               </div>
 
-              {/* Status Filter */}
-              <div className="mb-4 flex justify-end">
-                <div className="w-full md:w-64">
+              {/* Combined Filters */}
+              <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="matriculeFilter" className="block text-sm font-medium text-gray-300 mb-1">
+                    Filtrer par Matricule
+                  </label>
+                  <input
+                    type="text"
+                    id="matriculeFilter"
+                    value={matriculeFilter}
+                    onChange={handleMatriculeFilterChange}
+                    placeholder="Rechercher par Matricule..."
+                    className="w-full bg-gray-800 border border-gray-700 text-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                
+                <div>
                   <label htmlFor="statusFilter" className="block text-sm font-medium text-gray-300 mb-1">
                     Filtrer par statut
                   </label>
@@ -336,39 +328,43 @@ const Novometal = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-700">
-                    {currentRows.map((result, index) => (
-                      <tr 
-                        key={index} 
-                        className={result.hasIncoherence ? 'bg-yellow-900/20 hover:bg-yellow-900/30' : 'hover:bg-gray-800/50'}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-200">
-                          {result.employeeId}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                          {result.employeeName}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                          {result.hoursWorked.toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                          {result.hoursPaid.toFixed(2)}
-                        </td>
-                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-                          result.difference > 0 ? 'text-red-400' : 
-                          result.difference < 0 ? 'text-red-400' : 'text-green-400'
-                        }`}>
-                          {result.difference.toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            !result.hasIncoherence ? 'bg-green-900/50 text-green-400 border border-green-700' :
-                            'bg-red-900/50 text-red-400 border border-red-700'
+                    {currentRows.map((result, index) => {
+                      const statusInfo = getStatusInfo(result);
+                      return (
+                        <tr 
+                          key={index} 
+                          className={result.hasIncoherence ? 'bg-yellow-900/20 hover:bg-yellow-900/30' : 'hover:bg-gray-800/50'}
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-200">
+                            {result.employeeId}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                            {result.employeeName || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                            {result.hoursWorked.toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                            {result.hoursPaid.toFixed(2)}
+                          </td>
+                          <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
+                            result.difference > 0 ? 'text-red-400' : 
+                            result.difference < 0 ? 'text-red-400' : 'text-green-400'
                           }`}>
-                            {!result.hasIncoherence ? 'Correct' : 'Incohérence'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                            {result.difference.toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              statusInfo.color === 'green' 
+                                ? 'bg-green-900/50 text-green-400 border border-green-700' 
+                                : 'bg-red-900/50 text-red-400 border border-red-700'
+                            }`}>
+                              {statusInfo.text}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
 
@@ -376,7 +372,11 @@ const Novometal = () => {
                 <div className="flex items-center justify-between px-6 py-4 bg-gray-800 border-t border-gray-700">
                   <div className="text-sm text-gray-400">
                     Affichage {indexOfFirstRow + 1}-{Math.min(indexOfLastRow, filteredResults.length)} sur {filteredResults.length} résultats
-                    {statusFilter !== 'all' && ` (Filtré: ${statusFilter})`}
+                    {(statusFilter !== 'all' || matriculeFilter !== '') && (
+                      <span> (Filtré: {statusFilter !== 'all' ? `${statusFilter}` : ''}
+                      {statusFilter !== 'all' && matriculeFilter !== '' ? ' et ' : ''}
+                      {matriculeFilter !== '' ? `Matricule contenant "${matriculeFilter}"` : ''})</span>
+                    )}
                   </div>
                   <ReactPaginate
                     previousLabel={<ChevronLeft size={18} />}

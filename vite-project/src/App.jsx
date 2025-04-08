@@ -38,9 +38,9 @@ const App = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 pt-2">
-              <button className="bg-gradient-to-r from-blue-800 to-blue-900 hover:from-blue-800 hover:to-blue-950 text-white px-8 py-3.5 rounded-xl font-medium transition-all duration-300 shadow-lg ">
+              <a href="/scif" className="bg-gradient-to-r from-blue-800 to-blue-900 hover:from-blue-800 hover:to-blue-950 text-white px-8 py-3.5 rounded-xl font-medium transition-all duration-300 shadow-lg ">
                 Commencer maintenant
-              </button>
+              </a>
             </div>
           </div>
 

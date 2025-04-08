@@ -1,4 +1,4 @@
-import logo from "../assets/img/image-removebg-preview (11).png";
+import logo from "../assets/img/image-removebg-preview (14).png";
 
 const Images = {
   logo,
