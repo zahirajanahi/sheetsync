@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import ReactPaginate from 'react-paginate';
 import Images from "../constant/images";
 
-const Scif = () => {
+const Cobco = () => {
   const [pointageFile, setPointageFile] = useState(null);
   const [paieFile, setPaieFile] = useState(null);
   const [results, setResults] = useState(null);
@@ -23,23 +23,18 @@ const Scif = () => {
     const statusMatch = statusFilter === 'all' || item.status === statusFilter;
     
     // CIN filter
-    const cinMatch = cinFilter === '' || item.CIN.toLowerCase().includes(cinFilter.toLowerCase());
+    const cinMatch = cinFilter === '' || 
+      (item.CIN && item.CIN.toLowerCase().includes(cinFilter.toLowerCase()));
     
     // Incoherence type filter
     let incoherenceMatch = true;
     if (incoherenceTypeFilter !== 'all' && statusFilter !== 'Correct') {
       switch(incoherenceTypeFilter) {
-        case 'ferie':
-          incoherenceMatch = item.ferieStatus === 'Incohérence';
-          break;
-        case 'taux':
-          incoherenceMatch = item.tauxSalaireStatus === 'Incohérence';
-          break;
         case 'hs25':
-          incoherenceMatch = item.pct25Status === 'Incohérence';
+          incoherenceMatch = item.hs25Status === 'Incohérence';
           break;
-        case 'mt_hs25':
-          incoherenceMatch = item.mtHs25Status === 'Incohérence';
+        case 'heures':
+          incoherenceMatch = Math.abs(item.difference) > 0.01;
           break;
         default:
           incoherenceMatch = true;
@@ -94,48 +89,56 @@ const Scif = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Reset states
+    setError(null);
+    setResults(null);
+    setCurrentPage(0);
+    setExpandedRows([]);
+    
     if (!pointageFile || !paieFile) {
       setError('Veuillez sélectionner les deux fichiers');
       return;
     }
     
-    const validExtensions = ['.xlsx', '.xls'];
+    // File validation
+    const validExtensions = ['.xlsx', '.xls', '.csv'];
     const pointageExt = pointageFile.name.substring(pointageFile.name.lastIndexOf('.')).toLowerCase();
     const paieExt = paieFile.name.substring(paieFile.name.lastIndexOf('.')).toLowerCase();
     
     if (!validExtensions.includes(pointageExt) || !validExtensions.includes(paieExt)) {
-      setError('Veuillez sélectionner des fichiers Excel (.xlsx ou .xls)');
+      setError('Veuillez sélectionner des fichiers Excel (.xlsx, .xls) ou CSV');
       return;
     }
     
     setLoading(true);
-    setError(null);
-    setResults(null); 
-    setCurrentPage(0);
-    setExpandedRows([]);
-    
-    const formData = new FormData();
-    formData.append('pointage', pointageFile);
-    formData.append('paie', paieFile);
     
     try {
-      const response = await fetch('http://localhost:8001/upload', {
+      const response = await fetch('http://localhost:8002/upload', {
         method: 'POST',
-        body: formData,
+        body: createFormData(),
       });
       
-      const data = await response.json();
-      
       if (!response.ok) {
-        throw new Error(data.error || 'Une erreur est survenue lors du traitement des fichiers');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur serveur');
       }
       
+      const data = await response.json();
       setResults(data);
     } catch (err) {
       setError(err.message || 'Erreur de connexion avec le serveur');
+      console.error('API Error:', err);
     } finally {
       setLoading(false);
     }
+  };
+  
+  // Helper function to create form data
+  const createFormData = () => {
+    const formData = new FormData();
+    formData.append('pointage', pointageFile);
+    formData.append('paie', paieFile);
+    return formData;
   };
 
   const getStatusBadge = (status) => {
@@ -193,13 +196,13 @@ const Scif = () => {
 
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="bg-[#222222]/80 p-8 rounded-lg border border-gray-800 shadow-xl">
-          <h1 className="text-2xl font-bold text-white mb-6">Traitement Pointage vs Paie Scif</h1>
+          <h1 className="text-2xl font-bold text-white mb-6">Traitement Pointage vs Paie COBCO</h1>
           
           <form onSubmit={handleSubmit} className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-3">
                 <label className="block text-sm font-medium text-gray-300">
-                  Fichier de Pointage (NORMAL)
+                  Fichier de Pointage (JRS/HRS)
                 </label>
                 <div className="flex items-center space-x-4">
                   <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-gray-700 border-dashed rounded-lg cursor-pointer bg-[#333333] hover:bg-[#3A3A3A] transition-colors hover:border-gray-500 duration-200">
@@ -211,18 +214,18 @@ const Scif = () => {
                     </div>
                     <input 
                       type="file" 
-                      accept=".xlsx, .xls" 
+                      accept=".xlsx, .xls, .csv" 
                       onChange={handlePointageChange}
                       className="hidden" 
                     />
                   </label>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Format attendu: CIN, Nom et Prénom, NORMAL, TAUX HORAIRE, 25%</p>
+                <p className="text-xs text-gray-500 mt-1">Format attendu: NCIN, JRS/HRS, HS 25</p>
               </div>
               
               <div className="space-y-3">
                 <label className="block text-sm font-medium text-gray-300">
-                  Fichier de Journal de Paie (Jrs/Hrs)
+                  Fichier de Journal de Paie (JRS/HRS)
                 </label>
                 <div className="flex items-center space-x-4">
                   <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-gray-700 border-dashed rounded-lg cursor-pointer bg-[#333333] hover:bg-[#3A3A3A] transition-colors hover:border-gray-500 duration-200">
@@ -234,13 +237,13 @@ const Scif = () => {
                     </div>
                     <input 
                       type="file" 
-                      accept=".xlsx, .xls" 
+                      accept=".xlsx, .xls, .csv" 
                       onChange={handlePaieChange}
                       className="hidden" 
                     />
                   </label>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Format attendu: NCIN, Nom et Prénom, Jrs/Hrs, Salaire, HS 25, MT HS 25</p>
+                <p className="text-xs text-gray-500 mt-1">Format attendu: NCIN, JRS/HRS, HS 25</p>
               </div>
             </div>
             
@@ -293,7 +296,12 @@ const Scif = () => {
                     <p className="text-sm text-gray-400">Incohérences</p>
                     <p className="text-2xl font-bold text-red-400">{results.summary.inconsistencies}</p>
                   </div>
-                  
+                  {/* <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 shadow-md transition-transform hover:scale-102 duration-200">
+                    <p className="text-sm text-gray-400">Prime de rendement</p>
+                    <p className="text-2xl font-bold text-yellow-400">
+                      {results.summary.totalPrimeRendement?.toFixed(2) || '0.00'}
+                    </p>
+                  </div> */}
                 </div>
               </div>
 
@@ -346,10 +354,8 @@ const Scif = () => {
                       className="w-full bg-gray-800 border border-gray-700 text-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="all">Tous les types</option>
-                      <option value="ferie">Incohérences Férié</option>
-                      <option value="taux">Incohérences TAUX Horaire/Salaire</option>
-                      <option value="hs25">Incohérences 25% vs HS 25</option>
-                      <option value="mt_hs25">Incohérences MT HS 25</option>
+                      <option value="hs25">Incohérences HS 25</option>
+                      <option value="heures">Incohérences Heures</option>
                     </select>
                   </div>
                 )}
@@ -360,19 +366,19 @@ const Scif = () => {
                   <thead className="bg-gray-800">
                     <tr>
                       <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                       CIN
+                        CIN
                       </th>
                       <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                       NORMAL (pointage)
+                        Heures Pointage
                       </th>
                       <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Jrs/Hrs (Journal de paie)
+                        Heures Paie
                       </th>
                       <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                         Différence
                       </th>
                       <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Prime de Rendement
+                        Prime Rendement
                       </th>
                       <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                         Statut
@@ -394,26 +400,25 @@ const Scif = () => {
                           }
                           style={{ transition: 'background-color 0.2s ease' }}
                         >
-                          
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-200">
                             {item.CIN}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                            {item.heuresTravaillees.toFixed(2)}
+                            {item.heuresTravaillees?.toFixed(2) || '0.00'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                            {item.heuresPayees.toFixed(2)}
+                            {item.heuresPayees?.toFixed(2) || '0.00'}
                           </td>
                           <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
                             item.difference > 0 ? 'text-red-400' : 
                             item.difference < 0 ? 'text-red-800' : 'text-gray-400'
                           }`}>
-                            {item.difference.toFixed(2)}
+                            {item.difference?.toFixed(2) || '0.00'}
                           </td>
                           <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
                             item.primeRendement > 0 ? 'text-yellow-400' : 'text-gray-400'
                           }`}>
-                            {item.primeRendement.toFixed(2)}
+                            {item.primeRendement?.toFixed(2) || '0.00'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(item.status)}`}>
@@ -433,71 +438,46 @@ const Scif = () => {
                           <tr className="bg-gray-800/50">
                             <td colSpan="7" className="px-6 py-4">
                               <div className="space-y-3">
-                                {/* TAUX Horaire vs Salaire comparison */}
-                                <div className="p-3 rounded-lg bg-green-900/20">
+                                {/* HS 25 comparison */}
+                                <div className={`p-3 rounded-lg ${
+                                  item.hs25Status === 'Correct' ? 'bg-green-900/20' : 'bg-red-900/20'
+                                }`}>
                                   <div className="flex items-center">
-                                    {item.tauxSalaireStatus === 'Correct' ? (
+                                    {item.hs25Status === 'Correct' ? (
                                       <Check className="w-4 h-4 text-green-400 mr-2" />
                                     ) : (
                                       <X className="w-4 h-4 text-red-400 mr-2" />
                                     )}
                                     <span className="font-medium text-sm">
-                                      TAUX Horaire vs Salaire: 
+                                      HS 25 Pointage vs HS 25 Paie: 
                                     </span>
                                     <span className={`ml-2 text-sm ${
-                                      item.tauxSalaireStatus === 'Correct' ? 'text-green-400' : 'text-red-400'
+                                      item.hs25Status === 'Correct' ? 'text-green-400' : 'text-red-400'
                                     }`}>
-                                      {item.tauxSalaireStatus}
+                                      {item.hs25Status}
                                     </span>
                                   </div>
-                                  {item.tauxHoraire !== undefined && item.salairePaie !== undefined && (
+
+                                  {item.hs25Pointage === undefined && item.hs25Paie === undefined ? (
+                                    <div className="text-xs text-gray-500 italic">
+                                      Données HS 25 non disponibles pour cet employé
+                                    </div>
+                                  ) : (
                                     <>
-                                      <div className="mt-1 text-xs text-gray-300">
-                                        TAUX Horaire: {item.tauxHoraire.toFixed(2)}
-                                      </div>
-                                      <div className="mt-1 text-xs text-gray-300">
-                                        Salaire: {item.salairePaie.toFixed(2)}
-                                      </div>
-                                      {item.tauxSalaireStatus === 'Incohérence' && (
-                                        <div className="mt-1 text-xs text-red-300">
-                                          <Info className="inline w-3 h-3 mr-1" />
-                                          Les valeurs devraient être identiques
+                                      {item.hs25Pointage !== undefined && (
+                                        <div className="mt-1 text-xs text-gray-300">
+                                          HS 25 Pointage: {item.hs25Pointage.toFixed(2)}
+                                        </div>
+                                      )}
+                                      {item.hs25Paie !== undefined && (
+                                        <div className="mt-1 text-xs text-gray-300">
+                                          HS 25 Paie: {item.hs25Paie.toFixed(2)}
                                         </div>
                                       )}
                                     </>
                                   )}
-                                </div>
-                                
-                                {/* Férié comparison */}
-                                <div className={`p-3 rounded-lg ${
-                                  item.ferieStatus === 'Correct' ? 'bg-green-900/20' : 'bg-red-900/20'
-                                }`}>
-                                  <div className="flex items-center">
-                                    {item.ferieStatus === 'Correct' ? (
-                                      <Check className="w-4 h-4 text-green-400 mr-2" />
-                                    ) : (
-                                      <X className="w-4 h-4 text-red-400 mr-2" />
-                                    )}
-                                    <span className="font-medium text-sm">
-                                      Férié Pointage vs Férié Paie: 
-                                    </span>
-                                    <span className={`ml-2 text-sm ${
-                                      item.ferieStatus === 'Correct' ? 'text-green-400' : 'text-red-400'
-                                    }`}>
-                                      {item.ferieStatus}
-                                    </span>
-                                  </div>
-                                  {item.feriePointage !== undefined && (
-                                    <div className="mt-1 text-xs text-gray-300">
-                                      Férié Pointage: {item.feriePointage.toFixed(2)}
-                                    </div>
-                                  )}
-                                  {item.feriePaie !== undefined && (
-                                    <div className="mt-1 text-xs text-gray-300">
-                                      Férié Paie: {item.feriePaie.toFixed(2)}
-                                    </div>
-                                  )}
-                                  {item.ferieStatus === 'Incohérence' && (
+
+                                  {item.hs25Status === 'Incohérence' && (
                                     <div className="mt-1 text-xs text-red-300">
                                       <Info className="inline w-3 h-3 mr-1" />
                                       Les valeurs devraient être identiques
@@ -505,77 +485,36 @@ const Scif = () => {
                                   )}
                                 </div>
                                 
-                              {/* 25% vs HS 25 comparison */}
-<div className={`p-3 rounded-lg ${
-  item.pct25Status === 'Correct' ? 'bg-green-900/20' : 'bg-red-900/20'
-}`}>
-  <div className="flex items-center">
-    {item.pct25Status === 'Correct' ? (
-      <Check className="w-4 h-4 text-green-400 mr-2" />
-    ) : (
-      <X className="w-4 h-4 text-red-400 mr-2" />
-    )}
-    <span className="font-medium text-sm">
-      25% Pointage vs HS 25 Paie: 
-    </span>
-    <span className={`ml-2 text-sm ${
-      item.pct25Status === 'Correct' ? 'text-green-400' : 'text-red-400'
-    }`}>
-      {item.pct25Status}
-    </span>
-  </div>
-  {item.pct25Pointage !== undefined && (
-    <div className="mt-1 text-xs text-gray-300">
-      25% Pointage: {item.pct25Pointage.toFixed(2)}
-    </div>
-  )}
-  {item.hs25Paie !== undefined && (
-    <div className="mt-1 text-xs text-gray-300">
-      HS 25 Paie: {item.hs25Paie.toFixed(2)}
-    </div>
-  )}
-  {item.pct25Status === 'Incohérence' && (
-    <div className="mt-1 text-xs text-red-300">
-      <Info className="inline w-3 h-3 mr-1" />
-      Les valeurs devraient être identiques
-    </div>
-  )}
-</div>
-                                
-                                {/* MT HS 25 validation */}
+                                {/* Hours comparison */}
                                 <div className={`p-3 rounded-lg ${
-                                  item.mtHs25Status === 'Correct' ? 'bg-green-900/20' : 'bg-red-900/20'
+                                  item.difference === 0 ? 'bg-green-900/20' : 'bg-red-900/20'
                                 }`}>
                                   <div className="flex items-center">
-                                    {item.mtHs25Status === 'Correct' ? (
+                                    {item.difference === 0 ? (
                                       <Check className="w-4 h-4 text-green-400 mr-2" />
                                     ) : (
                                       <X className="w-4 h-4 text-red-400 mr-2" />
                                     )}
                                     <span className="font-medium text-sm">
-                                      Validation MT HS 25: 
+                                      Validation Heures: 
                                     </span>
                                     <span className={`ml-2 text-sm ${
-                                      item.mtHs25Status === 'Correct' ? 'text-green-400' : 'text-red-400'
+                                      item.difference === 0 ? 'text-green-400' : 'text-red-400'
                                     }`}>
-                                      {item.mtHs25Status}
+                                      {item.difference === 0 ? 'Correct' : 'Incohérence'}
                                     </span>
                                   </div>
-                                  {item.mtHs25Paie !== undefined && item.mtHs25Expected !== undefined && (
-                                    <>
-                                      <div className="mt-1 text-xs text-gray-300">
-                                        MT HS 25 (fichier): {item.mtHs25Paie.toFixed(2)}
-                                      </div>
-                                      <div className="mt-1 text-xs text-gray-300">
-                                        MT HS 25 (calculé): {item.mtHs25Expected.toFixed(2)}
-                                      </div>
-                                      {item.mtHs25Status === 'Incohérence' && (
-                                        <div className="mt-1 text-xs text-red-300">
-                                          <Info className="inline w-3 h-3 mr-1" />
-                                          MT HS 25 devrait être égal à HS 25 × TAUX × 1.25
-                                        </div>
-                                      )}
-                                    </>
+                                  <div className="mt-1 text-xs text-gray-300">
+                                    Heures Pointage: {item.heuresTravaillees?.toFixed(2) || '0.00'}
+                                  </div>
+                                  <div className="mt-1 text-xs text-gray-300">
+                                    Heures Paie: {item.heuresPayees?.toFixed(2) || '0.00'}
+                                  </div>
+                                  {item.difference !== 0 && (
+                                    <div className="mt-1 text-xs text-red-300">
+                                      <Info className="inline w-3 h-3 mr-1" />
+                                      Différence de {Math.abs(item.difference).toFixed(2)} heures
+                                    </div>
                                   )}
                                 </div>
                                 
@@ -624,7 +563,6 @@ const Scif = () => {
                   forcePage={currentPage}
                 />
               </div>
-              
             </div>
           )}
         </div>
@@ -633,4 +571,4 @@ const Scif = () => {
   );
 };
 
-export default Scif;
+export default Cobco;

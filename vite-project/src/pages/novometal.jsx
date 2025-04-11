@@ -150,8 +150,8 @@ const Novometal = () => {
                     <Link to="/novometal" className="block px-4 py-2 text-sm text-gray-300 hover:text-[#5c67cb] hover:bg-white/10 transition-colors">
                       Novometal
                     </Link>
-                    <Link to="/afric-ph" className="block px-4 py-2 text-sm text-gray-300 hover:text-[#5c67cb] hover:bg-white/10 transition-colors">
-                      Afric-ph 
+                    <Link to="/cobco" className="block px-4 py-2 text-sm text-gray-300 hover:text-[#5c67cb] hover:bg-white/10 transition-colors">
+                      Cobco
                    </Link>
                   </div>
                 </li>
