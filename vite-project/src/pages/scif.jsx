@@ -3,6 +3,10 @@ import { AlertCircle, Upload, Loader2, ChevronLeft, ChevronRight, Info, Check, X
 import { Link } from 'react-router-dom';
 import ReactPaginate from 'react-paginate';
 import Images from "../constant/images";
+import {  useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { LogOut } from 'lucide-react';
+
 
 const Scif = () => {
   const [pointageFile, setPointageFile] = useState(null);
@@ -17,10 +21,27 @@ const Scif = () => {
   const [incoherenceTypeFilter, setIncoherenceTypeFilter] = useState('all');
   const [expandedRows, setExpandedRows] = useState([]);
 
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/');
+  };
+
+  if (!user) return null;
+
   // Filter results based on status, CIN, and incoherence type
   const filteredResults = results?.results?.filter(item => {
+
     // Status filter
-    const statusMatch = statusFilter === 'all' || item.status === statusFilter;
+      // Status filter
+    const statusMatch = statusFilter === 'all' || 
+                   item.status === statusFilter ||
+                   (statusFilter === 'Fin de Contrat' && 
+                    item.paieValidations?.embaucheDateCheck?.status === 'Fin de Contrat') ||
+                   (statusFilter === 'Employé non déclaré' && 
+                    item.paieValidations?.amoCnssCheck?.status === 'Employé non déclaré');
     
     // CIN filter
     const cinMatch = cinFilter === '' || item.CIN.toLowerCase().includes(cinFilter.toLowerCase());
@@ -146,6 +167,10 @@ const Scif = () => {
         return 'bg-purple-900/50 text-purple-400 border border-purple-700';
       case 'Employé absent dans journal de paie':
         return 'bg-orange-900/50 text-orange-400 border border-orange-700';
+      case 'Fin de Contrat':
+        return 'bg-blue-900/50 text-blue-400 border border-blue-700';
+      case 'Employé non déclaré':
+        return 'bg-red-900/50 text-red-400 border border-red-700';
       default:
         return 'bg-red-900/50 text-red-400 border border-red-700';
     }
@@ -153,39 +178,67 @@ const Scif = () => {
 
   return (
     <div className="min-h-screen bg-[#1A1F2C] text-gray-100">
-      <nav className="backdrop-blur-xl bg-black/40 border-b border-white/10 shadow-lg sticky top-0 z-10">
+
+<nav className="backdrop-blur-xl bg-black/40 border-b border-white/10 shadow-lg sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-16">
+          <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <img src={Images.logo} alt="Logo" className="h-8 w-8" />
               </div>
               <div className="ml-4">
-                <a href='/' className="text-xl font-bold text-white">SheetSync</a>
+                <Link to="/" className="text-xl font-bold text-white">SheetSync</Link>
+              </div>
+              <div className="hidden md:block ms-20">
+                <ul className="flex space-x-4">
+                  <li className="relative group">
+                    <button className="text-gray-300 hover:text-[#5c67cb] hover:bg-white/10 px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center">
+                      Traitement
+                      <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    <div className="absolute hidden group-hover:block bg-black backdrop-blur-md border border-white/10 rounded-md shadow-lg min-w-[160px] z-20">
+                      <Link to="/scif" className="block px-4 py-2 text-sm text-gray-300 hover:text-[#5c67cb] hover:bg-white/10 transition-colors">
+                        SCIF
+                      </Link>
+                      <Link to="/novometal" className="block px-4 py-2 text-sm text-gray-300 hover:text-[#5c67cb] hover:bg-white/10 transition-colors">
+                        Novometal
+                      </Link>
+                      <Link to="/cobco" className="block px-4 py-2 text-sm text-gray-300 hover:text-[#5c67cb] hover:bg-white/10 transition-colors">
+                        COBCO
+                      </Link>
+                      <Link to="/casaEaro" className="block px-4 py-2 text-sm text-gray-300 hover:text-[#5c67cb] hover:bg-white/10 transition-colors">
+                        CasaEaro
+                      </Link>
+                      <Link to="/sbbc" className="block px-4 py-2 text-sm text-gray-300 hover:text-[#5c67cb] hover:bg-white/10 transition-colors">
+                        SBBC
+                      </Link>
+                      <Link to="/other" className="block px-4 py-2 text-sm text-gray-300 hover:text-[#5c67cb] hover:bg-white/10 transition-colors">
+                        Grand Ceram
+                      </Link>
+                    </div>
+                  </li>
+                   
+                  <li  className='"text-gray-500 hover:text-[#5c67cb] hover:bg-white/10 px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-cente'>
+                    <Link to="/temp"> Template </Link>
+                  </li>
+
+                  <li  className='"text-gray-500 hover:text-[#5c67cb] hover:bg-white/10 px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-cente'>
+                    <Link to="/temp2"> Template 2 </Link>
+                  </li>
+
+                </ul>
               </div>
             </div>
-            <div className="hidden md:block ms-20">
-              <ul className="flex space-x-4">
-                <li className="relative group">
-                  <button className="text-gray-300 hover:text-[#5c67cb] hover:bg-white/10 px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center">
-                    Traitement
-                    <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  <div className="absolute hidden group-hover:block bg-black backdrop-blur-md border border-white/10 rounded-md shadow-lg min-w-[160px] z-20">
-                    <Link to="/scif" className="block px-4 py-2 text-sm text-gray-300 hover:text-[#5c67cb] hover:bg-white/10 transition-colors">
-                      SCIF
-                    </Link>
-                    <Link to="/novometal" className="block px-4 py-2 text-sm text-gray-300 hover:text-[#5c67cb] hover:bg-white/10 transition-colors">
-                      Novometal
-                    </Link>
-                    <Link to="/cobco" className="block px-4 py-2 text-sm text-gray-300 hover:text-[#5c67cb] hover:bg-white/10 transition-colors">
-                      COBCO
-                    </Link>
-                  </div>
-                </li>
-              </ul>
+            <div className="flex items-center">
+              <button
+                onClick={handleLogout}
+                className="flex items-center px-4 py-2 text-sm font-medium px-3 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-full text-xs"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Déconnexion
+              </button>
             </div>
           </div>
         </div>
@@ -293,6 +346,23 @@ const Scif = () => {
                     <p className="text-sm text-gray-400">Incohérences</p>
                     <p className="text-2xl font-bold text-red-400">{results.summary.inconsistencies}</p>
                   </div>
+
+                  
+    <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 shadow-md transition-transform hover:scale-102 duration-200">
+      <p className="text-sm text-gray-400">Fin de contrat</p>
+      <p className="text-2xl font-bold text-blue-400">
+        {results.results.filter(r => 
+          r.paieValidations?.embaucheDateCheck?.status === 'Fin de Contrat').length}
+      </p>
+    </div>
+    
+    <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 shadow-md transition-transform hover:scale-102 duration-200">
+      <p className="text-sm text-gray-400">Employee Non déclarés</p>
+      <p className="text-2xl font-bold text-red-400">
+        {results.results.filter(r => 
+          r.paieValidations?.amoCnssCheck?.status === 'Employé non déclaré').length}
+      </p>
+    </div>
                   
                 </div>
               </div>
@@ -331,6 +401,8 @@ const Scif = () => {
                     <option value="Incohérence">Incohérence</option>
                     <option value="Employé absent dans pointage">Employé absent dans pointage</option>
                     <option value="Employé absent dans journal de paie">Employé absent dans journal de paie</option>
+                    <option value="Fin de Contrat">Fin de Contrat</option>
+                    <option value="Employé non déclaré">Employé non déclaré</option>
                   </select>
                 </div>
 
@@ -433,6 +505,90 @@ const Scif = () => {
                           <tr className="bg-gray-800/50">
                             <td colSpan="7" className="px-6 py-4">
                               <div className="space-y-3">
+
+                                 {/* AMO & CNSS Check */}
+                                        <div className={`p-3 rounded-lg ${
+                                          item.paieValidations?.amoCnssCheck?.status === 'Valid' 
+                                            ? 'bg-green-900/20' 
+                                            : 'bg-red-900/20'
+                                        }`}>
+                                          <div className="flex items-center">
+                                            {item.paieValidations?.amoCnssCheck?.status === 'Valid' ? (
+                                              <Check className="w-4 h-4 text-green-400 mr-2" />
+                                            ) : (
+                                              <X className="w-4 h-4 text-red-400 mr-2" />
+                                            )}
+                                            <span className="font-medium text-sm">
+                                              Validation AMO & CNSS: 
+                                            </span>
+                                            <span className={`ml-2 text-sm ${
+                                              item.paieValidations?.amoCnssCheck?.status === 'Valid' 
+                                                ? 'text-green-400' 
+                                                : 'text-red-400'
+                                            }`}>
+                                              {item.paieValidations?.amoCnssCheck?.status || 'Non vérifié'}
+                                            </span>
+                                          </div>
+                                          {item.paieValidations?.amoCnssCheck && (
+                                            <>
+                                              <div className="mt-1 text-xs text-gray-300">
+                                                AMO: {item.paieValidations.amoCnssCheck.amo?.toFixed(2) || '0.00'}
+                                              </div>
+                                              <div className="mt-1 text-xs text-gray-300">
+                                                CNSS: {item.paieValidations.amoCnssCheck.cnss?.toFixed(2) || '0.00'}
+                                              </div>
+                                              {item.paieValidations.amoCnssCheck.status === 'Employé non déclaré' && (
+                                                <div className="mt-1 text-xs text-red-300">
+                                                  <Info className="inline w-3 h-3 mr-1" />
+                                                  AMO ou CNSS est à 0 - Employé non déclaré
+                                                </div>
+                                              )}
+                                            </>
+                                          )}
+                                        </div>
+                                        
+                                        {/* Date d'Embauche Check */}
+                                        <div className={`p-3 rounded-lg ${
+                                          item.paieValidations?.embaucheDateCheck?.status === 'Valid' 
+                                            ? 'bg-green-900/20' 
+                                            : 'bg-purple-900/20'
+                                        }`}>
+                                          <div className="flex items-center">
+                                            {item.paieValidations?.embaucheDateCheck?.status === 'Valid' ? (
+                                              <Check className="w-4 h-4 text-green-400 mr-2" />
+                                            ) : (
+                                              <AlertCircle className="w-4 h-4 text-purple-400 mr-2" />
+                                            )}
+                                            <span className="font-medium text-sm">
+                                              Validation Date d'Embauche: 
+                                            </span>
+                                            <span className={`ml-2 text-sm ${
+                                              item.paieValidations?.embaucheDateCheck?.status === 'Valid' 
+                                                ? 'text-green-400' 
+                                                : 'text-purple-400'
+                                            }`}>
+                                              {item.paieValidations?.embaucheDateCheck?.status || 'Non vérifié'}
+                                            </span>
+                                          </div>
+                                          {item.paieValidations?.embaucheDateCheck && (
+                                            <>
+                                              <div className="mt-1 text-xs text-gray-300">
+                                                Date d'Embauche: {item.paieValidations.embaucheDateCheck.dateEmbauche || 'Non spécifiée'}
+                                              </div>
+                                              <div className="mt-1 text-xs text-gray-300">
+                                                Ancienneté: {item.paieValidations.embaucheDateCheck.anciennete || 'Non calculée'}
+                                              </div>
+                                              {item.paieValidations.embaucheDateCheck.status === 'Fin de Contrat' && (
+                                                <div className="mt-1 text-xs text-purple-300">
+                                                  <Info className="inline w-3 h-3 mr-1" />
+                                                  L'employé a moins de 6 mois d'ancienneté
+                                                </div>
+                                              )}
+                                            </>
+                                          )}
+                                        </div>
+
+                                        
                                 {/* TAUX Horaire vs Salaire comparison */}
                                 <div className="p-3 rounded-lg bg-green-900/20">
                                   <div className="flex items-center">

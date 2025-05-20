@@ -3,6 +3,7 @@ from flask_cors import CORS
 import pandas as pd
 import os
 from werkzeug.utils import secure_filename
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -90,36 +91,24 @@ def compare_files(pointage_path, paie_path):
     ncin_col_pointage = next((col for col in df_pointage.columns if "NCIN" in col or "CIN" in col), None)
     jrs_hrs_col_pointage = next((col for col in df_pointage.columns if "JRS" in col and "HRS" in col), None)
     
-    # For the "HS 25" column in pointage
+    # For the "HS 25" and "HS 50" columns in pointage
     hs25_pointage_col = next((col for col in df_pointage.columns if "HS 25" in col and "MT" not in col), None)
-    
-    # For the "jour férié" column in pointage
-    ferie_pointage_col = None
-    for col in df_pointage.columns:
-        if "FERIE" in col or "FÉRIÉ" in col:
-            ferie_pointage_col = col
-            break
-    
-    # Also check for "JOUR FERIE" pattern separately to avoid duplication issues
-    if not ferie_pointage_col:
-        for col in df_pointage.columns:
-            if "JOUR" in col and ("FERIE" in col or "FÉRIÉ" in col):
-                ferie_pointage_col = col
-                break
+    hs50_pointage_col = next((col for col in df_pointage.columns if "HS 50" in col and "MT" not in col), None)
     
     # Paie file columns
     ncin_col_paie = next((col for col in df_paie.columns if "NCIN" in col or "CIN" in col), None)
     jrs_hrs_col_paie = next((col for col in df_paie.columns if "JRS" in col and "HRS" in col), None)
     
-    # For the "HS 25" column in paie
+    # For the "HS 25" and "HS 50" columns in paie
     hs25_paie_col = next((col for col in df_paie.columns if "HS 25" in col and "MT" not in col), None)
-    
-    # For the "Férié" column in paie
-    ferie_paie_col = None
-    for col in df_paie.columns:
-        if "FERIE" in col or "FÉRIÉ" in col:
-            ferie_paie_col = col
-            break
+    hs50_paie_col = next((col for col in df_paie.columns if "HS 50" in col and "MT" not in col), None)
+            
+    # New columns for paie validations
+    acompte_col = next((col for col in df_paie.columns if "ACOMPTE" in col), None)
+    net_paye_col = next((col for col in df_paie.columns if "NET" in col and "PAYE" in col), None)
+    amo_col = next((col for col in df_paie.columns if "AMO" in col), None)
+    cnss_col = next((col for col in df_paie.columns if "CNSS" in col), None)
+    date_embauche_col = next((col for col in df_paie.columns if "DATE" in col and "EMBAUCHE" in col), None)
     
     # Check required columns
     required_pointage_cols = {
@@ -150,27 +139,39 @@ def compare_files(pointage_path, paie_path):
     df_pointage[jrs_hrs_col_pointage] = pd.to_numeric(df_pointage[jrs_hrs_col_pointage], errors="coerce").fillna(0)
     df_paie[jrs_hrs_col_paie] = pd.to_numeric(df_paie[jrs_hrs_col_paie], errors="coerce").fillna(0)
     
-    # Convert ferié columns to numeric if they exist
-    if ferie_pointage_col:
-        df_pointage[ferie_pointage_col] = pd.to_numeric(df_pointage[ferie_pointage_col], errors="coerce").fillna(0)
-    if ferie_paie_col:
-        df_paie[ferie_paie_col] = pd.to_numeric(df_paie[ferie_paie_col], errors="coerce").fillna(0)
+    # Convert validation columns to numeric if they exist
+    if acompte_col:
+        df_paie[acompte_col] = pd.to_numeric(df_paie[acompte_col], errors="coerce").fillna(0)
+    if net_paye_col:
+        df_paie[net_paye_col] = pd.to_numeric(df_paie[net_paye_col], errors="coerce").fillna(0)
+    if amo_col:
+        df_paie[amo_col] = pd.to_numeric(df_paie[amo_col], errors="coerce").fillna(0)
+    if cnss_col:
+        df_paie[cnss_col] = pd.to_numeric(df_paie[cnss_col], errors="coerce").fillna(0)
     
-    # Convert HS 25 columns to numeric if they exist
+    # Convert HS 25 and HS 50 columns to numeric if they exist
     if hs25_pointage_col:
         df_pointage[hs25_pointage_col] = pd.to_numeric(df_pointage[hs25_pointage_col], errors="coerce").fillna(0)
     if hs25_paie_col:
         df_paie[hs25_paie_col] = pd.to_numeric(df_paie[hs25_paie_col], errors="coerce").fillna(0)
+    if hs50_pointage_col:
+        df_pointage[hs50_pointage_col] = pd.to_numeric(df_pointage[hs50_pointage_col], errors="coerce").fillna(0)
+    if hs50_paie_col:
+        df_paie[hs50_paie_col] = pd.to_numeric(df_paie[hs50_paie_col], errors="coerce").fillna(0)
+    
+    # Convert date_embauche to datetime if it exists
+    if date_embauche_col:
+        df_paie[date_embauche_col] = pd.to_datetime(df_paie[date_embauche_col], errors="coerce")
     
     # Group pointage by NCIN and aggregate data
     agg_dict = {
         jrs_hrs_col_pointage: 'sum'
     }
     
-    if ferie_pointage_col:
-        agg_dict[ferie_pointage_col] = 'sum'
     if hs25_pointage_col:
         agg_dict[hs25_pointage_col] = 'sum'
+    if hs50_pointage_col:
+        agg_dict[hs50_pointage_col] = 'sum'
         
     df_pointage_grouped = df_pointage.groupby(ncin_col_pointage).agg(agg_dict).reset_index()
     
@@ -180,29 +181,49 @@ def compare_files(pointage_path, paie_path):
         jrs_hrs_col_pointage: "Heures_Pointage"
     }
     
-    if ferie_pointage_col:
-        rename_dict_pointage[ferie_pointage_col] = "FERIE_POINTAGE"
     if hs25_pointage_col:
         rename_dict_pointage[hs25_pointage_col] = "HS25_POINTAGE"
+    if hs50_pointage_col:
+        rename_dict_pointage[hs50_pointage_col] = "HS50_POINTAGE"
         
     df_pointage_grouped.rename(columns=rename_dict_pointage, inplace=True)
     
     # Prepare paie data
     paie_cols = [ncin_col_paie, jrs_hrs_col_paie]
-    if ferie_paie_col:
-        paie_cols.append(ferie_paie_col)
     if hs25_paie_col:
         paie_cols.append(hs25_paie_col)
+    if hs50_paie_col:
+        paie_cols.append(hs50_paie_col)
+    if acompte_col:
+        paie_cols.append(acompte_col)
+    if net_paye_col:
+        paie_cols.append(net_paye_col)
+    if amo_col:
+        paie_cols.append(amo_col)
+    if cnss_col:
+        paie_cols.append(cnss_col)
+    if date_embauche_col:
+        paie_cols.append(date_embauche_col)
         
     rename_dict_paie = {
         ncin_col_paie: "CIN", 
         jrs_hrs_col_paie: "Heures_Paie"
     }
     
-    if ferie_paie_col:
-        rename_dict_paie[ferie_paie_col] = "FERIE_PAIE"
     if hs25_paie_col:
         rename_dict_paie[hs25_paie_col] = "HS25_PAIE"
+    if hs50_paie_col:
+        rename_dict_paie[hs50_paie_col] = "HS50_PAIE"
+    if acompte_col:
+        rename_dict_paie[acompte_col] = "ACOMPTE"
+    if net_paye_col:
+        rename_dict_paie[net_paye_col] = "NET_PAYE"
+    if amo_col:
+        rename_dict_paie[amo_col] = "AMO"
+    if cnss_col:
+        rename_dict_paie[cnss_col] = "CNSS"
+    if date_embauche_col:
+        rename_dict_paie[date_embauche_col] = "DATE_EMBAUCHE"
         
     df_paie = df_paie[paie_cols].rename(columns=rename_dict_paie)
     
@@ -243,25 +264,6 @@ def compare_files(pointage_path, paie_path):
                 if row["Heures_Pointage"] > row["Heures_Paie"]:
                     prime_rendement = row["Heures_Pointage"] - row["Heures_Paie"]
         
-        # Férié comparison
-        ferie_status = "Correct"
-        if "FERIE_POINTAGE" in df_comparaison.columns and "FERIE_PAIE" in df_comparaison.columns:
-            if abs(row["FERIE_POINTAGE"] - row["FERIE_PAIE"]) > 0.01:
-                ferie_status = "Incohérence"
-                if status == "Correct":
-                    status = "Incohérence"
-                inconsistencies.append(f"Férié Pointage ({row['FERIE_POINTAGE']}) ≠ Férié Paie ({row['FERIE_PAIE']})")
-        elif "FERIE_POINTAGE" in df_comparaison.columns and row["FERIE_POINTAGE"] > 0:
-            ferie_status = "Incohérence"
-            if status == "Correct":
-                status = "Incohérence"
-            inconsistencies.append(f"Férié Pointage ({row['FERIE_POINTAGE']}) mais absent dans Paie")
-        elif "FERIE_PAIE" in df_comparaison.columns and row["FERIE_PAIE"] > 0:
-            ferie_status = "Incohérence"
-            if status == "Correct":
-                status = "Incohérence"
-            inconsistencies.append(f"Férié Paie ({row['FERIE_PAIE']}) mais absent dans Pointage")
-        
         # HS 25 comparison (HS 25 vs HS 25)
         hs25_status = "Correct"
         if "HS25_POINTAGE" in df_comparaison.columns and "HS25_PAIE" in df_comparaison.columns:
@@ -281,6 +283,64 @@ def compare_files(pointage_path, paie_path):
                 status = "Incohérence"
             inconsistencies.append(f"HS 25 Paie ({row['HS25_PAIE']}) mais absent dans Pointage")
         
+        # HS 50 comparison (HS 50 vs HS 50)
+        hs50_status = "Correct"
+        if "HS50_POINTAGE" in df_comparaison.columns and "HS50_PAIE" in df_comparaison.columns:
+            if abs(row["HS50_POINTAGE"] - row["HS50_PAIE"]) > 0.01:
+                hs50_status = "Incohérence"
+                if status == "Correct":
+                    status = "Incohérence"
+                inconsistencies.append(f"HS 50 Pointage ({row['HS50_POINTAGE']}) ≠ HS 50 Paie ({row['HS50_PAIE']})")
+        elif "HS50_POINTAGE" in df_comparaison.columns and row["HS50_POINTAGE"] > 0:
+            hs50_status = "Incohérence"
+            if status == "Correct":
+                status = "Incohérence"
+            inconsistencies.append(f"HS 50 Pointage ({row['HS50_POINTAGE']}) mais absent dans Paie")
+        elif "HS50_PAIE" in df_comparaison.columns and row["HS50_PAIE"] > 0:
+            hs50_status = "Incohérence"
+            if status == "Correct":
+                status = "Incohérence"
+            inconsistencies.append(f"HS 50 Paie ({row['HS50_PAIE']}) mais absent dans Pointage")
+        
+        # New: Paie validations
+        paie_validations = {}
+        
+        # AMO & CNSS Check
+        amo_cnss_check = {"status": "Valid"}  # Default to Valid
+        if "AMO" in df_comparaison.columns and "CNSS" in df_comparaison.columns:
+            amo = float(row["AMO"]) if pd.notna(row["AMO"]) else 0
+            cnss = float(row["CNSS"]) if pd.notna(row["CNSS"]) else 0
+            
+            amo_cnss_check = {
+                "amo": amo,
+                "cnss": cnss,
+                "status": "Valid" if amo > 0 and cnss > 0 else "Employé non déclaré"
+            }
+        paie_validations["amoCnssCheck"] = amo_cnss_check
+        
+        # Date d'Embauche Check with updated contract duration logic
+        embauche_date_check = {"status": "Valid"}  # Default to Valid
+        if "DATE_EMBAUCHE" in df_comparaison.columns and pd.notna(row["DATE_EMBAUCHE"]):
+            try:
+                date_embauche = pd.to_datetime(row["DATE_EMBAUCHE"])
+                today = pd.to_datetime('today')
+                anciennete = (today - date_embauche).days / 30  # Convert to months
+                
+                embauche_date_check = {
+                    "dateEmbauche": date_embauche.strftime('%Y-%m-%d') if not pd.isna(date_embauche) else "Non spécifiée",
+                    "anciennete": f"{anciennete:.1f} mois",
+                    "status": "Fin de Contrat" if anciennete > 5 else "Valide"
+                }
+            except Exception as e:
+                embauche_date_check = {
+                    "dateEmbauche": "Format invalide",
+                    "anciennete": "Non calculée",
+                    "status": "Non vérifié",
+                    "error": str(e)
+                }
+                
+        paie_validations["embaucheDateCheck"] = embauche_date_check
+        
         result_item = {
             "CIN": row["CIN"],
             "heuresTravaillees": row["Heures_Pointage"],
@@ -288,20 +348,35 @@ def compare_files(pointage_path, paie_path):
             "difference": row["Écart"],
             "status": status,
             "primeRendement": prime_rendement,
-            "ferieStatus": ferie_status,
             "hs25Status": hs25_status,
-            "inconsistencies": inconsistencies
+            "hs50Status": hs50_status,
+            "inconsistencies": inconsistencies,
+            "paieValidations": paie_validations
         }
         
         # Add optional fields if they exist in the dataframe
-        if "FERIE_POINTAGE" in df_comparaison.columns:
-            result_item["feriePointage"] = row["FERIE_POINTAGE"]
-        if "FERIE_PAIE" in df_comparaison.columns:
-            result_item["feriePaie"] = row["FERIE_PAIE"]
         if "HS25_POINTAGE" in df_comparaison.columns:
             result_item["hs25Pointage"] = row["HS25_POINTAGE"]
         if "HS25_PAIE" in df_comparaison.columns:
             result_item["hs25Paie"] = row["HS25_PAIE"]
+        if "HS50_POINTAGE" in df_comparaison.columns:
+            result_item["hs50Pointage"] = row["HS50_POINTAGE"]
+        if "HS50_PAIE" in df_comparaison.columns:
+            result_item["hs50Paie"] = row["HS50_PAIE"]
+        if "ACOMPTE" in df_comparaison.columns:
+            result_item["acompte"] = row["ACOMPTE"]
+        if "NET_PAYE" in df_comparaison.columns:
+            result_item["netPaye"] = row["NET_PAYE"]
+        if "AMO" in df_comparaison.columns:
+            result_item["amo"] = row["AMO"]
+        if "CNSS" in df_comparaison.columns:
+            result_item["cnss"] = row["CNSS"]
+        if "DATE_EMBAUCHE" in df_comparaison.columns:
+            # Format date as string for JSON serialization if it's a datetime
+            if isinstance(row["DATE_EMBAUCHE"], pd.Timestamp):
+                result_item["dateEmbauche"] = row["DATE_EMBAUCHE"].strftime('%Y-%m-%d')
+            else:
+                result_item["dateEmbauche"] = row["DATE_EMBAUCHE"]
             
         results.append(result_item)
     
@@ -312,11 +387,10 @@ def compare_files(pointage_path, paie_path):
             "correct": sum(1 for r in results if r["status"] == "Correct"),
             "inconsistencies": sum(1 for r in results if r["status"] != "Correct"),
             "totalPrimeRendement": sum(r["primeRendement"] for r in results),
-            "ferieInconsistencies": sum(1 for r in results if r.get("ferieStatus") == "Incohérence"),
-            "hs25Inconsistencies": sum(1 for r in results if r.get("hs25Status") == "Incohérence")
+            "hs25Inconsistencies": sum(1 for r in results if r.get("hs25Status") == "Incohérence"),
+            "hs50Inconsistencies": sum(1 for r in results if r.get("hs50Status") == "Incohérence")
         }
     }
 
-    
 if __name__ == '__main__':
     app.run(debug=True, port=8002)

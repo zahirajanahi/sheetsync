@@ -141,6 +141,15 @@ def compare_files(pointage_path, paie_path):
             mt_hs25_paie_col = col
             break
             
+    # ADDED: Find AMO column in paie
+    amo_col = next((col for col in df_paie.columns if "AMO" in col), None)
+    
+    # ADDED: Find CNSS column in paie
+    cnss_col = next((col for col in df_paie.columns if "CNSS" in col), None)
+    
+    # ADDED: Find DATE EMBAUCHE column in paie
+    date_embauche_col = next((col for col in df_paie.columns if "DATE" in col and "EMBAUCHE" in col), None)
+    
     if not hs25_paie_col:
         print("Warning: Could not find HS 25 column in paie file!")
         print("Available columns:", df_paie.columns.tolist())
@@ -198,6 +207,16 @@ def compare_files(pointage_path, paie_path):
     if salaire_col:
         df_paie[salaire_col] = pd.to_numeric(df_paie[salaire_col], errors="coerce").fillna(0)
     
+    # ADDED: Convert AMO and CNSS columns to numeric if they exist
+    if amo_col:
+        df_paie[amo_col] = pd.to_numeric(df_paie[amo_col], errors="coerce").fillna(0)
+    if cnss_col:
+        df_paie[cnss_col] = pd.to_numeric(df_paie[cnss_col], errors="coerce").fillna(0)
+    
+    # ADDED: Convert date_embauche to datetime if it exists
+    if date_embauche_col:
+        df_paie[date_embauche_col] = pd.to_datetime(df_paie[date_embauche_col], errors="coerce")
+    
     # Group pointage by CIN and aggregate data
     agg_dict = {normal_col: 'sum'}
     
@@ -235,6 +254,13 @@ def compare_files(pointage_path, paie_path):
         paie_cols.append(hs25_paie_col)
     if mt_hs25_paie_col:
         paie_cols.append(mt_hs25_paie_col)
+    # ADDED: Include AMO, CNSS, and DATE_EMBAUCHE columns if they exist
+    if amo_col:
+        paie_cols.append(amo_col)
+    if cnss_col:
+        paie_cols.append(cnss_col)
+    if date_embauche_col:
+        paie_cols.append(date_embauche_col)
         
     rename_dict_paie = {
         ncin_col_paie: "CIN", 
@@ -249,6 +275,13 @@ def compare_files(pointage_path, paie_path):
         rename_dict_paie[hs25_paie_col] = "HS25_PAIE"
     if mt_hs25_paie_col:
         rename_dict_paie[mt_hs25_paie_col] = "MT_HS25_PAIE"
+    # ADDED: Rename AMO, CNSS, and DATE_EMBAUCHE columns
+    if amo_col:
+        rename_dict_paie[amo_col] = "AMO"
+    if cnss_col:
+        rename_dict_paie[cnss_col] = "CNSS"
+    if date_embauche_col:
+        rename_dict_paie[date_embauche_col] = "DATE_EMBAUCHE"
         
     df_paie = df_paie[paie_cols].rename(columns=rename_dict_paie)
     
@@ -338,6 +371,44 @@ def compare_files(pointage_path, paie_path):
                     status = "Incohérence"
                 inconsistencies.append(f"MT HS 25 ({row['MT_HS25_PAIE']}) ≠ HS 25 * TAUX * 1.25 ({row['MT_HS25_EXPECTED']})")
         
+        # ADDED: Paie validations
+        paie_validations = {}
+        
+        # AMO & CNSS Check
+        amo_cnss_check = {"status": "Valid"}  # Default to Valid
+        if "AMO" in df_comparaison.columns and "CNSS" in df_comparaison.columns:
+            amo = float(row["AMO"]) if pd.notna(row["AMO"]) else 0
+            cnss = float(row["CNSS"]) if pd.notna(row["CNSS"]) else 0
+            
+            amo_cnss_check = {
+                "amo": amo,
+                "cnss": cnss,
+                "status": "Valid" if amo > 0 and cnss > 0 else "Employé non déclaré"
+            }
+        paie_validations["amoCnssCheck"] = amo_cnss_check
+        
+        # Date d'Embauche Check with updated contract duration logic
+        embauche_date_check = {"status": "Valid"}  # Default to Valid
+        if "DATE_EMBAUCHE" in df_comparaison.columns and pd.notna(row["DATE_EMBAUCHE"]):
+            try:
+                date_embauche = pd.to_datetime(row["DATE_EMBAUCHE"])
+                today = pd.to_datetime('today')
+                anciennete = (today - date_embauche).days / 30  # Convert to months
+                
+                embauche_date_check = {
+                    "dateEmbauche": date_embauche.strftime('%Y-%m-%d') if not pd.isna(date_embauche) else "Non spécifiée",
+                    "anciennete": f"{anciennete:.1f} mois",
+                    "status": "Fin de Contrat" if anciennete > 5 else "Valide"
+                }
+            except Exception as e:
+                embauche_date_check = {
+                    "dateEmbauche": "Format invalide",
+                    "anciennete": "Non calculée",
+                    "status": "Non vérifié",
+                    "error": str(e)
+                }
+        paie_validations["embaucheDateCheck"] = embauche_date_check
+        
         result_item = {
             "CIN": row["CIN"],
             "heuresTravaillees": row["Heures_Pointage"],
@@ -349,7 +420,8 @@ def compare_files(pointage_path, paie_path):
             "ferieStatus": ferie_status,
             "pct25Status": pct25_status,
             "mtHs25Status": mt_hs25_status,
-            "inconsistencies": inconsistencies
+            "inconsistencies": inconsistencies,
+            "paieValidations": paie_validations  # ADDED: Include paie validations
         }
         
         # Add optional fields if they exist in the dataframe
@@ -369,6 +441,17 @@ def compare_files(pointage_path, paie_path):
             result_item["mtHs25Paie"] = row["MT_HS25_PAIE"]
         if "MT_HS25_EXPECTED" in df_comparaison.columns:
             result_item["mtHs25Expected"] = row["MT_HS25_EXPECTED"]
+        # ADDED: Include AMO, CNSS, and DATE_EMBAUCHE fields if they exist
+        if "AMO" in df_comparaison.columns:
+            result_item["amo"] = row["AMO"]
+        if "CNSS" in df_comparaison.columns:
+            result_item["cnss"] = row["CNSS"]
+        if "DATE_EMBAUCHE" in df_comparaison.columns:
+            # Format date as string for JSON serialization if it's a datetime
+            if isinstance(row["DATE_EMBAUCHE"], pd.Timestamp):
+                result_item["dateEmbauche"] = row["DATE_EMBAUCHE"].strftime('%Y-%m-%d')
+            else:
+                result_item["dateEmbauche"] = row["DATE_EMBAUCHE"]
             
         results.append(result_item)
     

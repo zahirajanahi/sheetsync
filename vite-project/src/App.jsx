@@ -1,5 +1,8 @@
 import React from 'react';
 import Images from "../src/constant/images";
+import { Link } from 'react-router-dom';
+import { LogIn } from 'lucide-react';
+
 
 const App = () => {
   return (
@@ -13,9 +16,9 @@ const App = () => {
           </div>
           
           <div className="flex items-center gap-4">
-            <button className="text-gray-100 hover:text-white px-6 py-2.5 rounded-full bg-white/10 backdrop-blur-lg border border-white/10 transition-all duration-300 hover:bg-white/15">
+            <Link to="/login" className="text-gray-100 hover:text-white px-6 py-2.5 rounded-full bg-white/10 backdrop-blur-lg border border-white/10 transition-all duration-300 hover:bg-white/15">
               Se connecter
-            </button>
+            </Link>
           </div>
         </nav>
       </header>
